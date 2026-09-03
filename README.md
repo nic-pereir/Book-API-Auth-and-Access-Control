@@ -1,36 +1,35 @@
-# Semana 7 — Autenticação e Autorização
+# Week 7 — Authentication and Authorization
 
-Evolução da Book API da semana 6 (FastAPI + SQLAlchemy + Pydantic), adicionando
-cadastro/login de usuários, JWT e controle de acesso por papel (`user` / `admin`).
+Evolution of the week 6 Book API (FastAPI + SQLAlchemy + Pydantic), adding
+user registration/login, JWT, and role-based access control (`user` / `admin`).
 
-## O que foi adicionado
+## What was added
 
-| Arquivo | O que faz |
+| File | What it does |
 |---|---|
-| `security.py` | Hash de senha com `bcrypt` e criação/validação de JWT |
-| `dependencies.py` | `get_current_user` (exige token válido) e `require_admin` (exige role admin) |
-| `models.py` | Novo modelo `User` (name, email único, hashed_password, role) |
-| `schemas.py` | `UserCreate`, `UserLogin`, `UserOut` (sem senha!), `Token` |
-| `crud.py` | Funções de acesso a dados para `User` |
-| `main.py` | Rotas `/auth/register`, `/auth/login`, `/users/me`, `/users`, `/users/{id}` + proteção nas rotas de `books`/`authors` |
-| `exemplo_01_hash_senha.py` | Script isolado do exercício 1 (hash/verify), sem FastAPI/DB |
+| `security.py` | Password hashing with `bcrypt` and JWT creation/validation |
+| `dependencies.py` | `get_current_user` (requires a valid token) and `require_admin` (requires admin role) |
+| `models.py` | New `User` model (name, unique email, hashed_password, role) |
+| `schemas.py` | `UserCreate`, `UserLogin`, `UserOut` (no password!), `Token` |
+| `crud.py` | Data access functions for `User` |
+| `main.py` | Routes `/auth/register`, `/auth/login`, `/users/me`, `/users`, `/users/{id}` + protection added to `books`/`authors` routes |
 
-`database.py` não mudou.
+`database.py` did not change.
 
-## Como rodar
+## How to run
 
 ```
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Abra `http://127.0.0.1:8000/docs`. No Swagger, use o botão "Authorize" com o
-token retornado por `/auth/login` (formato `Bearer <token>`) para testar as
-rotas protegidas.
+Open `http://127.0.0.1:8000/docs`. In Swagger, use the "Authorize" button
+with the token returned by `/auth/login` (format `Bearer <token>`) to test
+the protected routes.
 
-## Quem pode fazer o quê
+## Who can do what
 
-| Rota | Sem token | USER | ADMIN |
+| Route | No token | USER | ADMIN |
 |---|---|---|---|
 | `GET /books`, `/authors` | ✅ | ✅ | ✅ |
 | `POST`/`PUT` books, authors | 401 | ✅ | ✅ |
@@ -39,42 +38,42 @@ rotas protegidas.
 | `GET /users` | 401 | ✅ | ✅ |
 | `DELETE /users/{id}` | 401 | 403 | ✅ |
 
-Fui um pouco além do que os exercícios pediam ao proteger também
-`books`/`authors` com os dois níveis de acesso (não só `/users`), pra deixar
-o `role` realmente significando alguma coisa em mais de uma rota — se quiser
-apresentar só o escopo exato pedido (users), é só remover os `Depends` de
-`get_current_user`/`require_admin` das rotas de books/authors.
+I went a bit beyond what the exercises asked by also protecting
+`books`/`authors` with both access levels (not just `/users`), so that
+`role` actually means something across more than one route — if you'd
+rather present only the exact scope that was asked (users), just remove the
+`get_current_user`/`require_admin` `Depends` from the books/authors routes.
 
-## Desafio extra — 3 problemas de segurança encontrados
+## Extra challenge — 3 security issues found
 
-1. **JWT sem expiração longa demais / segredo fraco em produção**
-   `SECRET_KEY` tem um valor padrão hardcoded (`dev-only-secret-change-me`) e
-   o token expira em 30 min, mas se alguém rodasse isso em produção sem
-   definir a variável de ambiente `SECRET_KEY`, qualquer pessoa poderia forjar
-   tokens válidos. Correção: exigir `SECRET_KEY` via variável de ambiente
-   (falhar ao subir a aplicação se ela não existir) e nunca commitar segredos
-   no repositório.
+1. **Weak/default JWT secret in production**
+   `SECRET_KEY` has a hardcoded default value (`dev-only-secret-change-me`),
+   and the token expires after 30 minutes — but if someone ran this in
+   production without setting the `SECRET_KEY` environment variable, anyone
+   could forge valid tokens. Fix: require `SECRET_KEY` via environment
+   variable (fail to start the app if it's missing) and never commit
+   secrets to the repository.
 
-2. **Sem confirmação de senha / política de senha fraca no registro**
-   `POST /auth/register` aceita qualquer string como senha (inclusive `"1"`),
-   sem exigir tamanho mínimo. Correção: validar tamanho mínimo (ex: 8
-   caracteres) no `UserCreate` com um `field_validator` do Pydantic, e
-   idealmente checar contra listas de senhas vazadas.
+2. **No password confirmation / weak password policy at registration**
+   `POST /auth/register` accepts any string as a password (even `"1"`),
+   with no minimum length requirement. Fix: enforce a minimum length (e.g.
+   8 characters) in `UserCreate` with a Pydantic `field_validator`, and
+   ideally check against known leaked-password lists.
 
-3. **Sem rate limiting no `/auth/login`**
-   Como está, nada impede um ataque de força bruta contra o endpoint de
-   login (tentar milhares de senhas por segundo). Correção: adicionar rate
-   limiting por IP/email (ex: `slowapi`) e/ou bloqueio temporário após N
-   tentativas incorretas.
+3. **No rate limiting on `/auth/login`**
+   As it stands, nothing prevents a brute-force attack against the login
+   endpoint (trying thousands of passwords per second). Fix: add rate
+   limiting per IP/email (e.g. `slowapi`) and/or temporary lockout after N
+   failed attempts.
 
-Perguntas do enunciado, respondidas rapidamente:
+Questions from the assignment, answered briefly:
 
-- **Se o JWT nunca expirasse?** um token roubado/vazado ficaria válido para
-  sempre — não existiria forma de "deslogar" o usuário sem trocar o
-  `SECRET_KEY` (o que invalidaria todos os tokens de todo mundo).
-- **Se `/users/me` retornasse a senha?** mesmo com hash, exporia o hash para
-  qualquer pessoa autenticada tentar quebrar offline; por isso `UserOut` não
-  tem esse campo.
-- **Se um USER conseguisse chamar `DELETE /users/:id`?** qualquer usuário
-  comum poderia apagar a conta de qualquer outra pessoa, inclusive admins —
-  por isso essa rota depende de `require_admin`.
+- **What if the JWT never expired?** a stolen/leaked token would stay valid
+  forever — there would be no way to "log out" a user without rotating the
+  `SECRET_KEY` (which would invalidate everyone's tokens at once).
+- **What if `/users/me` returned the password?** even hashed, it would
+  expose the hash to any authenticated user trying to crack it offline —
+  that's why `UserOut` doesn't have that field.
+- **What if a USER could call `DELETE /users/:id`?** any regular user could
+  delete anyone else's account, including admins — that's why this route
+  depends on `require_admin`.
