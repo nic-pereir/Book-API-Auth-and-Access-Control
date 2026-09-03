@@ -1,4 +1,4 @@
-# Week 7 — Authentication and Authorization
+# Authentication and Authorization
 
 Evolution of the week 6 Book API (FastAPI + SQLAlchemy + Pydantic), adding
 user registration/login, JWT, and role-based access control (`user` / `admin`).
