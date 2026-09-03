@@ -53,7 +53,6 @@ class UserLogin(BaseModel):
 
 
 class UserOut(BaseModel):
-    # Note there is no "password" or "hashed_password" field here on purpose:
     # this schema controls what the API is allowed to send back to the client.
     id: int
     name: str
